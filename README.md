@@ -41,7 +41,7 @@ To start the application, run the following command:
 npm start
 ```
 
-The backend server should now be running and accessible at `http://localhost:3000`.
+The backend server should now be running and accessible at `http://localhost:4200`.
 
 ## Contributing
 
