@@ -17,7 +17,7 @@ uploadRouter.post("/files", upload.single("file"), async (req, res) => {
   };
 
   // Create session & trigger scanning in the background
-  const session = await createSession([fileInfo]);
+  const session = await createSession([fileInfo], "file");
 
   res.json({ message: "File uploaded!", sessionId: session.sessionId });
 });
@@ -35,7 +35,7 @@ uploadRouter.post("/folders", upload.array("folder"), async (req, res) => {
   }));
 
   // Create session & trigger scanning in the background
-  const session = await createSession(fileInfos);
+  const session = await createSession(fileInfos, "folder");
 
   res.json({ message: "Folder uploaded!", sessionId: session.sessionId });
 });

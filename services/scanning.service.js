@@ -20,22 +20,36 @@ import { extractMetadata, scanFile } from "./files.service.js";
  * @typedef {Object} Session
  * @property {string} sessionId - Unique session identifier
  * @property {string} status - Session status (pending, in_progress, completed, partially_failed, failed)
+ * @property {"quick"|"deep"} scanType - Type of scan performed (quick or deep)
+ * @property {"file"|"folder"} scanTarget - Target of the scan (file or folder)
  * @property {FileResult[]} files - List of files being processed
+ * @property {number} createdAt - Timestamp when the session was created
+ * @property {number} updatedAt - Timestamp when the session was last updated
  */
 
 /**
  * Creates a new session and stores it in memory.
- * @param {string} sessionId - Unique session identifier
  * @param {string[]} filePaths - Array of file paths uploaded
+ * @param {"quick"|"deep"} [scanType="quick"] - Type of scan to perform (quick or deep)
+ * @param {"file"|"folder"} [scanTarget="file"] - Target of the scan (file or folder)
  * @returns {Promise<Session>} Created session object
  */
-export const createSession = async (filePaths) => {
+export const createSession = async (
+  filePaths,
+  scanTarget = "file",
+  scanType = "quick"
+) => {
   const sessionId = uuidv4();
+  const now = new Date().getTime();
   const session = {
     sessionId,
     status: "pending",
+    scanType, // quick or deep
+    scanTarget, // file or folder
+    createdAt: now,
+    updatedAt: now,
     files: filePaths.map(({ filePath, fileName, fileSize }) => ({
-      fileName: filePath.split("/").pop(),
+      fileName,
       filePath,
       fileSize,
       md5: null,
@@ -48,6 +62,9 @@ export const createSession = async (filePaths) => {
   };
 
   await saveSession(session);
+  // Emit session update
+  emitSessionUpdate(sessionId, session);
+
   setTimeout(() => {
     processSession(sessionId);
   }, 5_000);
@@ -174,7 +191,9 @@ export const updateSession = async (sessionId, session) => {
   }
 
   // Logic to update session in storage
-  await saveSession(sessionId, session);
+  const now = new Date().getTime();
+  session.updatedAt = now;
+  await saveSession(session);
 
   // Emit session update
   emitSessionUpdate(sessionId, session);
