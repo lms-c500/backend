@@ -42,7 +42,7 @@ export async function saveFileResult(sessionId, file) {
 /**
  * Retrieves a session by ID.
  * @param {string} sessionId - The session ID.
- * @returns {Promise<Object|null>} - The session object or null if not found.
+ * @returns {Promise<import("./scanning.service.js").Session|null>} - The session object or null if not found.
  */
 export async function getSession(sessionId) {
   const session = sessions.get(sessionId) || null;

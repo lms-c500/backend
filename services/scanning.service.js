@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import { v4 as uuidv4 } from "uuid";
 import { getSession, saveFileResult, saveSession } from "./db.service.js";
 import { extractMetadata, scanFile } from "./files.service.js";
+import { promises as fs } from "fs";
 
 /**
  * @typedef {Object} FileResult
@@ -86,13 +87,9 @@ export const processSession = async (sessionId) => {
   session.status = "in_progress";
   updateSession(sessionId, session);
 
-  let hasFailedFiles = false;
-  for (const file of session.files) {
-    const result = await processFile(sessionId, file);
-    if (result.status === "failed") {
-      hasFailedFiles = true;
-    }
-  }
+  const hasFailedFiles = await Promise.allSettled(
+    session.files.map((file) => processSingleFile(sessionId, file))
+  ).then((results) => results.some((result) => !!result));
 
   // Final session status determination
   if (session.files.every((file) => file.status === "completed")) {
@@ -149,6 +146,33 @@ export const processFile = async (sessionId, file) => {
   return file;
 };
 
+/**
+ * Processes a single file for a given session.
+ *
+ * @async
+ * @function processSingleFile
+ * @param {string} sessionId - The ID of the session.
+ * @param {FileResult} file - The file object to be processed.
+ * @returns {Promise<boolean>} - Returns a promise that resolves to a boolean indicating if there were any failed files.
+ */
+async function processSingleFile(sessionId, file) {
+  const result = await processFile(sessionId, file);
+  if (result.status === "failed") {
+    hasFailedFiles = true;
+  }
+  // Delete file after processing
+  try {
+    await fs.unlink(file.filePath);
+    console.log(`Session ${sessionId}: Deleted file ${file.fileName}`);
+  } catch (error) {
+    console.error(
+      `Error deleting file ${file.fileName} in session ${sessionId}:`,
+      error
+    );
+  }
+  return hasFailedFiles || false;
+}
+
 const sessionUpdates = new EventEmitter();
 
 /**
@@ -175,13 +199,14 @@ export const unsubscribeFromSessionUpdates = (sessionId, callback) => {
  * @param {Session} session - Updated session object
  */
 const emitSessionUpdate = (sessionId, session) => {
+  console.log("xxxxxxx")
   sessionUpdates.emit(sessionId, session);
 };
 
 /**
  * Updates the session in the database and emits an update event.
  * @param {string} sessionId - Unique session identifier
- * @param {Session} session - Updated session object
+ * @param {Partial<Session>} session - Updated session object
  */
 export const updateSession = async (sessionId, session) => {
   const existingSession = await getSessionById(sessionId);

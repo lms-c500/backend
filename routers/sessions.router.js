@@ -30,7 +30,9 @@ scansRouter.get("/:sessionId/status", async (req, res) => {
  */
 scansRouter.get("/:sessionId/stream", async (req, res) => {
   const sendUpdate = (update) => {
-    res.write(`data: ${JSON.stringify(update)}\n\n`);
+    if (update?.status) {
+      res.write(`data: ${JSON.stringify(update)}\n\n`);
+    }
     if (["completed", "failed", "partially_failed"].includes(update.status)) {
       res.end(); // Close the connection when session is done
     }

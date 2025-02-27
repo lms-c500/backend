@@ -13,8 +13,8 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node main.js",
-    "dev": "nodemon main.js"
+    "start": "node --env-file=.env main.js",
+    "dev": "nodemon --env-file=.env main.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
