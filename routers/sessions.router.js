@@ -8,13 +8,25 @@ import {
 const scansRouter = express.Router();
 
 /**
+ * @param {import("../services/scanning.service.js").Session} session
+ */
+const copySession = (session) => {
+  /** @type {import("../services/scanning.service.js").Session} */
+  const result = JSON.parse(JSON.stringify(session));
+  for (const f of result.files) {
+    delete f.filePath;
+  }
+  return result;
+};
+
+/**
  * Get the current session status
  */
 scansRouter.get("/:sessionId/status", async (req, res) => {
   const { sessionId } = req.params;
   try {
     const session = await getSessionById(sessionId);
-    return res.json(session);
+    return res.json(copySession(session));
   } catch (err) {
     if (err.message.startsWith("NOTFOUND")) {
       return res.status(404).json({ error: "Session not found" });
@@ -31,7 +43,7 @@ scansRouter.get("/:sessionId/status", async (req, res) => {
 scansRouter.get("/:sessionId/stream", async (req, res) => {
   const sendUpdate = (update) => {
     if (update?.status) {
-      res.write(`data: ${JSON.stringify(update)}\n\n`);
+      res.write(`data: ${JSON.stringify(copySession(update))}\n\n`);
     }
     if (["completed", "failed", "partially_failed"].includes(update.status)) {
       res.end(); // Close the connection when session is done
@@ -43,7 +55,7 @@ scansRouter.get("/:sessionId/stream", async (req, res) => {
   try {
     session = await getSessionById(sessionId);
     if (["completed", "failed", "partially_failed"].includes(session.status)) {
-      return res.json(session); // Close the connection when session is done
+      return res.json(copySession(session)); // Close the connection when session is done
     }
   } catch (err) {
     if (err.message.startsWith("NOTFOUND")) {
@@ -58,7 +70,7 @@ scansRouter.get("/:sessionId/stream", async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  sendUpdate(session);
+  sendUpdate(copySession(session));
   subscribeToSessionUpdates(session.sessionId, sendUpdate);
 
   req.on("close", () => {

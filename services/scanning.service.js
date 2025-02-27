@@ -8,6 +8,7 @@ import { promises as fs } from "fs";
  * @typedef {Object} FileResult
  * @property {string} fileName - The name of the file
  * @property {string} filePath - The full file path
+ * @property {string} relativePath - Client relative path
  * @property {number} fileSize - The file size in bytes
  * @property {string|null} md5 - MD5 hash of the file (nullable)
  * @property {string|null} sha256 - SHA-256 hash of the file (nullable)
@@ -49,10 +50,11 @@ export const createSession = async (
     scanTarget, // file or folder
     createdAt: now,
     updatedAt: now,
-    files: filePaths.map(({ filePath, fileName, fileSize }) => ({
-      fileName,
-      filePath,
-      fileSize,
+    files: filePaths.map((f) => ({
+      fileName: f.fileName,
+      filePath: f.filePath,
+      fileSize: f.fileSize,
+      relativePath: f.relativePath,
       md5: null,
       sha256: null,
       status: "pending",
@@ -199,7 +201,6 @@ export const unsubscribeFromSessionUpdates = (sessionId, callback) => {
  * @param {Session} session - Updated session object
  */
 const emitSessionUpdate = (sessionId, session) => {
-  console.log("xxxxxxx")
   sessionUpdates.emit(sessionId, session);
 };
 
@@ -209,7 +210,7 @@ const emitSessionUpdate = (sessionId, session) => {
  * @param {Partial<Session>} session - Updated session object
  */
 export const updateSession = async (sessionId, session) => {
-  const existingSession = await getSessionById(sessionId);
+  const existingSession = await getSession(sessionId);
   if (!existingSession) {
     console.error(`NOTFOUND: Session ${sessionId} not found.`);
     return;

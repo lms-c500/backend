@@ -46,10 +46,14 @@ uploadRouter.post("/folders", upload.array("folder"), async (req, res) => {
       error: `Folder size exceeds limit of ${folderSizeLimitMB} MB`,
     });
   }
+  const relativePaths = req.body.relativePaths || [];
 
-  const fileInfos = req.files.map((file) => ({
+  const fileInfos = Array.from(req.files).map((file, index) => ({
     fileName: file.originalname,
-    filePath: file.path,
+    filePath: file.path, // Absolute path on server
+    relativePath: Array.isArray(relativePaths)
+      ? relativePaths[index]
+      : relativePaths, // Store relative path
     size: file.size,
   }));
 
