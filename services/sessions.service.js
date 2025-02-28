@@ -1,8 +1,9 @@
 import { EventEmitter } from "events";
+import { promises as fs } from "fs";
 import { v4 as uuidv4 } from "uuid";
 import { getSession, saveFileResult, saveSession } from "./db.service.js";
-import { extractMetadata, scanFile } from "./files.service.js";
-import { promises as fs } from "fs";
+import { checkELFFile, extractMetadata } from "./files.service.js";
+import { scanFile } from "./scans.service.js";
 
 /**
  * @typedef {Object} FileResult
@@ -13,9 +14,8 @@ import { promises as fs } from "fs";
  * @property {string|null} md5 - MD5 hash of the file (nullable)
  * @property {string|null} sha256 - SHA-256 hash of the file (nullable)
  * @property {string} status - File processing status (pending, extracting_metadata, scanning, completed, failed)
- * @property {boolean|null} isMalware - Whether the file is malware (nullable until scan completes)
- * @property {string|null} malwareType - Type of malware detected (nullable)
- * @property {number|null} confidence - Confidence score of malware detection (0-100, nullable)
+ * @property {string|null} malwareStatus - Whether the file is malware (nullable until scan completes)
+ * @property {string|null} scanDetails - Type of malware detected (nullable)
  */
 
 /**
@@ -58,9 +58,8 @@ export const createSession = async (
       md5: null,
       sha256: null,
       status: "pending",
-      isMalware: null,
-      malwareType: null,
-      confidence: null,
+      malwareStatus: null,
+      scanDetails: null,
     })),
   };
 
@@ -122,8 +121,11 @@ export const processFile = async (sessionId, file) => {
     updateSession(sessionId, { files: [file] });
 
     await delay(1000);
-    const metadata = await extractMetadata(file.filePath);
-    Object.assign(file, metadata);
+    const [metadata, elfCheckResult] = await Promise.all([
+      extractMetadata(file.filePath),
+      checkELFFile(file.filePath),
+    ]);
+    Object.assign(file, { ...metadata, ...elfCheckResult });
 
     file.status = "scanning";
     console.log(`Session ${sessionId}: Scanning file ${file.fileName}`);
@@ -216,13 +218,44 @@ export const updateSession = async (sessionId, session) => {
     return;
   }
 
-  // Logic to update session in storage
-  const now = new Date().getTime();
-  session.updatedAt = now;
-  await saveSession(session);
+  // Create a Map to track file updates (keyed by fileName)
+  /** @type {Map<string, FileResult>} */
+  const fileMap = new Map();
+
+  // Add existing files to the map
+  for (const file of existingSession.files) {
+    fileMap.set(file.fileName, file);
+  }
+
+  // Merge with new files
+  if (session.files && Array.isArray(session.files)) {
+    for (const newFile of session.files) {
+      const existingFile = fileMap.get(newFile.fileName);
+
+      if (existingFile) {
+        // Merge updates: prioritize new status, hashes, and malware details if present
+        fileMap.set(newFile.fileName, { ...existingFile, ...newFile });
+      } else {
+        // New file, add it
+        fileMap.set(newFile.fileName, newFile);
+      }
+    }
+  }
+
+  // Convert Map back to array
+  existingSession.files = Array.from(fileMap.values());
+
+  // Merge other session properties (excluding 'files' to avoid overwrite)
+  Object.assign(existingSession, session, { files: existingSession.files });
+
+  // Update the timestamp
+  existingSession.updatedAt = Date.now();
+
+  // Save the updated session
+  await saveSession(existingSession);
 
   // Emit session update
-  emitSessionUpdate(sessionId, session);
+  emitSessionUpdate(sessionId, existingSession);
 };
 
 /**

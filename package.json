@@ -14,7 +14,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file=.env main.js",
-    "dev": "nodemon --env-file=.env main.js"
+    "dev": "nodemon --ignore uploads/ --env-file=.env main.js"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"

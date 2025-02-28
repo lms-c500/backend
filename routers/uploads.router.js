@@ -1,6 +1,6 @@
 import express from "express";
 import { upload } from "./uploads.middleware.js";
-import { createSession } from "../services/scanning.service.js";
+import { createSession } from "../services/sessions.service.js";
 
 const uploadRouter = express.Router();
 
@@ -26,7 +26,11 @@ uploadRouter.post("/files", upload.single("file"), async (req, res) => {
   };
 
   // Create session & trigger scanning in the background
-  const session = await createSession([fileInfo], "file");
+  const session = await createSession(
+    [fileInfo],
+    "file",
+    req.body.scanType ?? "quick"
+  );
 
   res.json({ message: "File uploaded!", sessionId: session.sessionId });
 });
@@ -58,7 +62,11 @@ uploadRouter.post("/folders", upload.array("folder"), async (req, res) => {
   }));
 
   // Create session & trigger scanning in the background
-  const session = await createSession(fileInfos, "folder");
+  const session = await createSession(
+    fileInfos,
+    "folder",
+    req.body.scanType ?? "quick"
+  );
 
   res.json({ message: "Folder uploaded!", sessionId: session.sessionId });
 });

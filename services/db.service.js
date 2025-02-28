@@ -4,13 +4,13 @@
 
 /**
  * A Map to store session data.
- * @type {Map<string, import("./scanning.service.js").Session>}
+ * @type {Map<string, import("./sessions.service.js").Session>}
  */
 const sessions = new Map();
 
 /**
  * Saves a new session to the in-memory store.
- * @param {import("./scanning.service.js").Session} session - The session object to save.
+ * @param {import("./sessions.service.js").Session} session - The session object to save.
  * @returns {Promise<void>}
  */
 export async function saveSession(session) {
@@ -42,7 +42,7 @@ export async function saveFileResult(sessionId, file) {
 /**
  * Retrieves a session by ID.
  * @param {string} sessionId - The session ID.
- * @returns {Promise<import("./scanning.service.js").Session|null>} - The session object or null if not found.
+ * @returns {Promise<import("./sessions.service.js").Session|null>} - The session object or null if not found.
  */
 export async function getSession(sessionId) {
   const session = sessions.get(sessionId) || null;

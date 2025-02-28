@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import fs from "fs";
+import fs from "fs/promises";
 
 /**
  * Extracts metadata from a given file.
@@ -9,56 +9,61 @@ import fs from "fs";
  * @returns {Promise<Object>} - Metadata including hashes and file size.
  */
 export async function extractMetadata(filePath) {
-  return new Promise((resolve, reject) => {
-    fs.stat(filePath, (err, stats) => {
-      if (err) return reject(`Error accessing file: ${filePath}`);
+  try {
+    const stats = await fs.stat(filePath);
+    const fileBuffer = await fs.readFile(filePath);
 
-      const fileStream = fs.createReadStream(filePath);
-      const md5 = crypto.createHash("md5");
-      const sha256 = crypto.createHash("sha256");
+    const md5 = crypto.createHash("md5").update(fileBuffer).digest("hex");
+    const sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
-      fileStream.on("data", (chunk) => {
-        md5.update(chunk);
-        sha256.update(chunk);
-      });
-
-      fileStream.on("end", () => {
-        resolve({
-          filePath,
-          fileSize: stats.size,
-          md5: md5.digest("hex"),
-          sha256: sha256.digest("hex"),
-        });
-      });
-
-      fileStream.on("error", (error) =>
-        reject(`Error reading file: ${filePath}, ${error}`)
-      );
-    });
-  });
+    return {
+      filePath,
+      fileSize: stats.size,
+      md5,
+      sha256,
+    };
+  } catch (error) {
+    throw new Error(`Error processing file: ${filePath}, ${error.message}`);
+  }
 }
 
 /**
- * Simulates scanning a file for malware.
- * Calls an AI-based scanning API (to be implemented separately).
+ * Checks if a file is an ELF file and determines its architecture.
  *
  * @param {string} filePath - The absolute path of the file.
- * @returns {Promise<Object>} - Scanning result (malware status, type, confidence).
+ * @returns {Promise<{isELF: boolean, architecture: string | null}>} - Object containing isELF (boolean) and architecture (string|null).
  */
-export async function scanFile(filePath) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Simulate scanning with AI model - replace with real API call later
-      const isMalware = Math.random() < 0.3; // 30% chance of malware
-      const malwareType = isMalware ? "Trojan" : null;
-      const confidence = isMalware ? Math.floor(Math.random() * 40) + 60 : 100; // 60-100% if malware, otherwise 100%
+export async function checkELFFile(filePath) {
+  try {
+    const buffer = await fs.readFile(filePath, { length: 18 });
 
-      resolve({
-        filePath,
-        isMalware,
-        malwareType,
-        confidence,
-      });
-    }, 2000); // Simulated scan time
-  });
+    const isELF =
+      buffer[0] === 0x7f &&
+      buffer[1] === 0x45 &&
+      buffer[2] === 0x4c &&
+      buffer[3] === 0x46;
+
+    let architecture = null;
+    if (isELF) {
+      const archByte = buffer[18];
+      if (archByte === 0x03) {
+        architecture = "x86";
+      } else if (archByte === 0x3e) {
+        architecture = "x86_64";
+      } else if (archByte === 0x28) {
+        architecture = "ARM";
+      } else if (archByte === 0xb7) {
+        architecture = "AArch64";
+      }
+    }
+
+    return {
+      isELF,
+      architecture,
+    };
+  } catch (error) {
+    throw new Error(`Error reading file: ${filePath}, ${error.message}`);
+  }
 }
+
+

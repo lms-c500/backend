@@ -3,15 +3,15 @@ import {
   getSessionById,
   subscribeToSessionUpdates,
   unsubscribeFromSessionUpdates,
-} from "../services/scanning.service.js";
+} from "../services/sessions.service.js";
 
 const scansRouter = express.Router();
 
 /**
- * @param {import("../services/scanning.service.js").Session} session
+ * @param {import("../services/sessions.service.js").Session} session
  */
 const copySession = (session) => {
-  /** @type {import("../services/scanning.service.js").Session} */
+  /** @type {import("../services/sessions.service.js").Session} */
   const result = JSON.parse(JSON.stringify(session));
   for (const f of result.files) {
     delete f.filePath;
